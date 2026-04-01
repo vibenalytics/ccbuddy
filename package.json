@@ -1,10 +1,10 @@
 {
-  "name": "epic-buddy",
+  "name": "ccbuddy",
   "version": "1.0.0",
   "description": "Force your Claude Code buddy companion - pick your legendary",
   "type": "module",
   "bin": {
-    "epic-buddy": "./src/cli.mjs"
+    "ccbuddy": "./src/cli.mjs"
   },
   "files": [
     "src/"

@@ -177,7 +177,7 @@ async function interactiveMenu() {
 
     // Banner
     process.stdout.write(`\n${BOLD}  \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n`);
-    process.stdout.write(`  \u2502  EPIC BUDDY                        \u2502\n`);
+    process.stdout.write(`  \u2502  CCBUDDY                           \u2502\n`);
     process.stdout.write(`  \u2502  Force your Claude Code companion   \u2502\n`);
     process.stdout.write(`  \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f${RESET}\n\n`);
 
@@ -341,7 +341,7 @@ async function interactiveMenu() {
               `  ${BOLD}Now restart Claude Code${RESET} and run ${BOLD}/buddy${RESET}`,
               `  ${DIM}to meet your new ${chosen.rarity} ${chosen.species}!${RESET}`,
               '',
-              `  ${DIM}To undo later: npx epic-buddy restore${RESET}`,
+              `  ${DIM}To undo later: npx ccbuddy restore${RESET}`,
               '',
             ];
           } catch (err) {

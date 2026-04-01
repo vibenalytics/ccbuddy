@@ -1,20 +1,119 @@
 // Binary patcher - finds Claude Code binary, patches salt, handles codesign
 
-import { readFileSync, writeFileSync, copyFileSync, existsSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, copyFileSync, existsSync, unlinkSync, readdirSync } from 'fs';
 import { readlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { join } from 'path';
 import { homedir, platform } from 'os';
 import { ORIGINAL_SALT } from './companion.mjs';
 
+function resolveSymlink(p) {
+  try { return readlinkSync(p); } catch { return p; }
+}
+
+function xdgData() {
+  return process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share');
+}
+
 function findClaudeBinary() {
-  const link = join(homedir(), '.local', 'bin', 'claude');
-  if (!existsSync(link)) return null;
-  try {
-    return readlinkSync(link);
-  } catch {
-    return link;
+  const home = homedir();
+  const os = platform();
+  const ext = os === 'win32' ? '.exe' : '';
+
+  // 1. Native install (claude /install) - most common
+  const candidates = [
+    join(home, '.local', 'bin', 'claude' + ext),
+  ];
+
+  // 2. Legacy local npm install
+  candidates.push(join(home, '.claude', 'local', 'claude'));
+
+  // 3. Linux package managers (deb, rpm, pacman, apk)
+  candidates.push('/usr/bin/claude');
+
+  // 4. npm global
+  candidates.push('/usr/local/bin/claude');
+
+  // 5. Homebrew
+  if (os === 'darwin') {
+    candidates.push('/opt/homebrew/bin/claude');              // Apple Silicon
+    candidates.push('/usr/local/bin/claude');                  // Intel (already above, deduped by existsSync)
   }
+
+  // 6. Version managers
+  candidates.push(
+    join(home, '.volta', 'bin', 'claude'),
+    join(home, '.local', 'share', 'pnpm', 'claude'),
+    join(home, '.yarn', 'bin', 'claude'),
+    join(home, '.bun', 'bin', 'claude'),
+    join(home, '.npm', 'bin', 'claude'),
+  );
+
+  // 7. mise / asdf
+  const miseDir = join(xdgData(), 'mise', 'installs');
+  if (existsSync(miseDir)) {
+    try {
+      for (const tool of readdirSync(miseDir)) {
+        const toolDir = join(miseDir, tool);
+        for (const ver of readdirSync(toolDir).sort().reverse()) {
+          const bin = join(toolDir, ver, 'bin', 'claude');
+          if (existsSync(bin)) candidates.push(bin);
+        }
+      }
+    } catch {}
+  }
+  const asdfDir = join(home, '.asdf', 'installs');
+  if (existsSync(asdfDir)) {
+    try {
+      for (const tool of readdirSync(asdfDir)) {
+        const toolDir = join(asdfDir, tool);
+        for (const ver of readdirSync(toolDir).sort().reverse()) {
+          const bin = join(toolDir, ver, 'bin', 'claude');
+          if (existsSync(bin)) candidates.push(bin);
+        }
+      }
+    } catch {}
+  }
+
+  // 8. Windows-specific
+  if (os === 'win32') {
+    const appData = process.env.APPDATA || join(home, 'AppData', 'Roaming');
+    const localAppData = process.env.LOCALAPPDATA || join(home, 'AppData', 'Local');
+    candidates.push(
+      join(home, '.local', 'bin', 'claude.exe'),
+      join(appData, 'npm', 'claude.cmd'),
+      join(appData, 'npm', 'claude'),
+      join(localAppData, 'Microsoft', 'WinGet', 'Links', 'claude.exe'),
+      join(localAppData, 'Programs', 'claude-code', 'claude.exe'),
+    );
+  }
+
+  for (const p of candidates) {
+    if (existsSync(p)) return resolveSymlink(p);
+  }
+
+  // 9. Fall back to `which claude` / `where claude`
+  try {
+    const cmd = os === 'win32' ? 'where claude' : 'which claude';
+    const result = execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+    if (result && existsSync(result)) return resolveSymlink(result);
+  } catch {}
+
+  // 10. Check versioned installs directly (XDG-aware)
+  const versionsDir = join(xdgData(), 'claude', 'versions');
+  if (existsSync(versionsDir)) {
+    try {
+      const versions = readdirSync(versionsDir)
+        .filter(v => existsSync(join(versionsDir, v, 'claude' + ext)))
+        .sort()
+        .reverse();
+      if (versions.length > 0) {
+        return join(versionsDir, versions[0], 'claude' + ext);
+      }
+    } catch {}
+  }
+
+  return null;
 }
 
 function getConfigPath() {
@@ -49,7 +148,7 @@ export function patch(newSalt) {
 
   const binary = findClaudeBinary();
   if (!binary || !existsSync(binary)) {
-    throw new Error('Claude Code binary not found at ~/.local/bin/claude');
+    throw new Error('Claude Code binary not found. Is Claude Code installed?');
   }
 
   const backup = binary + '.bak';
@@ -80,7 +179,9 @@ export function patch(newSalt) {
   }
 
   writeFileSync(binary, content);
-  execSync(`chmod +x "${binary}"`);
+  if (platform() !== 'win32') {
+    execSync(`chmod +x "${binary}"`);
+  }
 
   // Re-sign on macOS
   if (platform() === 'darwin') {
@@ -118,7 +219,9 @@ export function restore() {
   }
 
   copyFileSync(backup, binary);
-  execSync(`chmod +x "${binary}"`);
+  if (platform() !== 'win32') {
+    execSync(`chmod +x "${binary}"`);
+  }
 
   if (platform() === 'darwin') {
     try {
