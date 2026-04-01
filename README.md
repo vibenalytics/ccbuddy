@@ -1,4 +1,4 @@
-# ccbuddy
+# ccbuddyy
 
 Pick your Claude Code buddy.
 
