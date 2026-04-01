@@ -2,6 +2,10 @@
 
 Force your Claude Code `/buddy` companion. Pick species, rarity, eyes, hat - no luck required.
 
+![ccbuddyy demo](demo.gif)
+
+Build your companion visually at [ccbuddy.dev](https://ccbuddy.dev)
+
 ```bash
 npx ccbuddyy
 ```
