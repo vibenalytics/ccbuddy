@@ -417,9 +417,48 @@ function parseFlag(args, flag) {
   return args[idx + 1];
 }
 
+function printBuildUsage() {
+  const RED = '\x1b[31m';
+  console.error(`
+  ${BOLD}Usage:${RESET} npx ccbuddyy build [options]
+
+  ${BOLD}Options:${RESET}
+    -species <name>    ${DIM}${SPECIES.join(', ')}${RESET}
+    -rarity <tier>     ${DIM}${RARITIES.join(', ')}${RESET}
+    -eye <name>        ${DIM}dot, star, x, circle, at, degree${RESET}
+    -hat <name>        ${DIM}${HATS.join(', ')}${RESET}
+    -shiny             ${DIM}require shiny (1% chance)${RESET}
+
+  ${BOLD}Examples:${RESET}
+    npx ccbuddyy build -species dragon -rarity legendary
+    npx ccbuddyy build -species cat -rarity epic -eye star -hat crown
+    npx ccbuddyy build -species penguin -rarity legendary -shiny
+`);
+}
+
 async function cmdBuild(args) {
   const userId = getUserId();
   if (!userId) { console.error('  Could not read ~/.claude.json'); process.exit(1); }
+
+  // Check for unknown flags
+  const VALID_FLAGS = ['-species', '-rarity', '-eye', '-hat', '-shiny'];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].startsWith('-') && !VALID_FLAGS.includes(args[i])) {
+      console.error(`  ${BOLD}Unknown flag:${RESET} ${args[i]}`);
+      printBuildUsage();
+      process.exit(1);
+    }
+  }
+
+  // Check for flags missing a value
+  for (const flag of ['-species', '-rarity', '-eye', '-hat']) {
+    const idx = args.indexOf(flag);
+    if (idx !== -1 && (idx + 1 >= args.length || args[idx + 1].startsWith('-'))) {
+      console.error(`  ${BOLD}Missing value for ${flag}${RESET}`);
+      printBuildUsage();
+      process.exit(1);
+    }
+  }
 
   const spec = {};
   const species = parseFlag(args, '-species');
@@ -429,26 +468,44 @@ async function cmdBuild(args) {
   const shiny = args.includes('-shiny');
 
   if (species) {
-    if (!SPECIES.includes(species)) { console.error(`  Unknown species: ${species}\n  Available: ${SPECIES.join(', ')}`); process.exit(1); }
+    if (!SPECIES.includes(species)) {
+      console.error(`  ${BOLD}Unknown species:${RESET} ${species}\n  ${DIM}Available: ${SPECIES.join(', ')}${RESET}`);
+      process.exit(1);
+    }
     spec.species = species;
   }
   if (rarity) {
-    if (!RARITIES.includes(rarity)) { console.error(`  Unknown rarity: ${rarity}\n  Available: ${RARITIES.join(', ')}`); process.exit(1); }
+    if (!RARITIES.includes(rarity)) {
+      console.error(`  ${BOLD}Unknown rarity:${RESET} ${rarity}\n  ${DIM}Available: ${RARITIES.join(', ')}${RESET}`);
+      process.exit(1);
+    }
     spec.rarity = rarity;
   }
   if (eye) {
     const resolved = EYE_NAME_MAP[eye];
-    if (!resolved) { console.error(`  Unknown eye: ${eye}\n  Available: dot, star, x, circle, at, degree`); process.exit(1); }
+    if (!resolved) {
+      console.error(`  ${BOLD}Unknown eye:${RESET} ${eye}\n  ${DIM}Available: dot, star, x, circle, at, degree${RESET}`);
+      process.exit(1);
+    }
     spec.eye = resolved;
   }
   if (hat) {
-    if (!HATS.includes(hat)) { console.error(`  Unknown hat: ${hat}\n  Available: ${HATS.join(', ')}`); process.exit(1); }
+    if (!HATS.includes(hat)) {
+      console.error(`  ${BOLD}Unknown hat:${RESET} ${hat}\n  ${DIM}Available: ${HATS.join(', ')}${RESET}`);
+      process.exit(1);
+    }
     spec.hat = hat;
   }
   if (shiny) spec.shiny = true;
 
   if (Object.keys(spec).length === 0) {
-    console.error('  Specify at least one: -species, -rarity, -eye, -hat, -shiny');
+    printBuildUsage();
+    process.exit(1);
+  }
+
+  // Validate combinations
+  if (spec.rarity === 'common' && spec.hat && spec.hat !== 'none') {
+    console.error(`  ${BOLD}Invalid combination:${RESET} common companions cannot have hats`);
     process.exit(1);
   }
 
