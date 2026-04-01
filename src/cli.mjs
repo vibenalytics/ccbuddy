@@ -166,7 +166,7 @@ async function interactiveMenu() {
   const isPatched = salt !== ORIGINAL_SALT;
 
   const mainOptions = [
-    { label: 'Pick a new companion', action: 'pick' },
+    { label: `\x1b[33m\u2605 ${BOLD}Pick a new companion\x1b[0m \x1b[33m\u2605\x1b[0m`, action: 'pick' },
     { label: 'Restore original', action: 'restore' },
     { label: 'Exit', action: 'exit' },
   ];
