@@ -332,16 +332,20 @@ async function interactiveMenu() {
             patch(chosen.salt);
             state = 'done';
             const cardLines = renderCard(chosen);
+            const ORANGE = '\x1b[38;5;208m';
+            const RED = '\x1b[31m';
             message = [
               '',
               `  ${BOLD}Patched!${RESET}`,
               '',
               ...cardLines,
               '',
-              `  ${BOLD}Now restart Claude Code${RESET} and run ${BOLD}/buddy${RESET}`,
-              `  ${DIM}to meet your new ${chosen.rarity} ${chosen.species}!${RESET}`,
+              `  ${ORANGE}${BOLD}\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510${RESET}`,
+              `  ${ORANGE}${BOLD}\u2502  1. Restart Claude Code               \u2502${RESET}`,
+              `  ${ORANGE}${BOLD}\u2502  2. Run ${RED}/buddy${ORANGE} to meet your companion  \u2502${RESET}`,
+              `  ${ORANGE}${BOLD}\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518${RESET}`,
               '',
-              `  ${DIM}To undo later: npx ccbuddyy restore${RESET}`,
+              `  ${DIM}To undo: npx ccbuddyy restore${RESET}`,
               '',
             ];
           } catch (err) {
@@ -477,26 +481,97 @@ async function cmdBuild(args) {
     process.exit(1);
   }
 
-  // Show results with benchmarks
-  console.log(`  ${BOLD}Found ${results.length} match${results.length > 1 ? 'es' : ''}${RESET}\n`);
-  results.forEach((r, i) => {
-    printCard2(r, i + 1);
-    console.log(`      ${DIM}found after ${r.iterations.toLocaleString()} iterations (${(r.elapsed / 1000).toFixed(1)}s)${RESET}`);
+  // TUI picker for build results
+  let cursor = 0;
+  const ORANGE = '\x1b[38;5;208m';
+  const RED = '\x1b[31m';
+
+  function drawBuild() {
+    process.stdout.write(CLEAR);
+    process.stdout.write(HIDE_CURSOR);
+
+    process.stdout.write(`\n${BOLD}  CCBUDDY BUILD${RESET}\n`);
+    process.stdout.write(`  ${DIM}${results.length} match${results.length > 1 ? 'es' : ''} found in ${(elapsed / 1000).toFixed(1)}s (${Math.round(totalIterations / (elapsed / 1000)).toLocaleString()} rolls/sec)${RESET}\n`);
+    process.stdout.write(`  ${DIM}\u2191\u2193 navigate, Enter to apply, q to quit${RESET}\n\n`);
+
+    for (let i = 0; i < results.length; i++) {
+      const selected = i === cursor;
+      const roll = results[i];
+      const color = RARITY_COLORS[roll.rarity] || '';
+      const stars = RARITY_STARS[roll.rarity] || '';
+      const shinyTag = roll.shiny ? ` \x1b[33m\u2728${RESET}` : '';
+      const sprite = renderSprite(roll);
+      const topStat = STAT_NAMES.reduce((a, b) => roll.stats[a] > roll.stats[b] ? a : b);
+
+      if (selected) {
+        process.stdout.write(`  ${INVERSE} ${(i + 1).toString().padStart(2)} ${RESET} `);
+        process.stdout.write(`${color}${BOLD}${stars} ${roll.rarity.toUpperCase()}${RESET} ${BOLD}${roll.species.toUpperCase()}${RESET}${shinyTag}\n`);
+        for (const line of sprite) {
+          process.stdout.write(`       ${line}\n`);
+        }
+        process.stdout.write('\n');
+        for (const name of STAT_NAMES) {
+          const v = roll.stats[name];
+          process.stdout.write(`       ${DIM}${name.padEnd(10)}${RESET} ${statBar(v)} ${v}\n`);
+        }
+        process.stdout.write(`       ${DIM}hat: ${roll.hat}  eyes: ${roll.eye}  salt: ${roll.salt}${RESET}\n`);
+        process.stdout.write(`       ${DIM}found after ${roll.iterations.toLocaleString()} iterations${RESET}\n\n`);
+      } else {
+        const hatInfo = roll.hat !== 'none' ? ` [${roll.hat}]` : '';
+        process.stdout.write(`  ${DIM} ${(i + 1).toString().padStart(2)} ${RESET} `);
+        process.stdout.write(`${color}${stars}${RESET} ${roll.species}${hatInfo} ${DIM}${topStat}:${roll.stats[topStat]}${RESET}${shinyTag}\n`);
+      }
+    }
+  }
+
+  return new Promise((resolve) => {
+    enableRawMode();
+    drawBuild();
+
+    process.stdin.on('data', (key) => {
+      if (key === '\x03' || key === 'q') {
+        process.stdout.write(SHOW_CURSOR);
+        disableRawMode();
+        resolve();
+        return;
+      }
+      if (key === '\x1b[A' || key === 'k') {
+        cursor = Math.max(0, cursor - 1);
+        drawBuild();
+        return;
+      }
+      if (key === '\x1b[B' || key === 'j') {
+        cursor = Math.min(results.length - 1, cursor + 1);
+        drawBuild();
+        return;
+      }
+      if (key === '\r' || key === '\n') {
+        const chosen = results[cursor];
+        try {
+          patch(chosen.salt);
+          process.stdout.write(CLEAR);
+          process.stdout.write(SHOW_CURSOR);
+
+          const cardLines = renderCard(chosen);
+          process.stdout.write('\n');
+          process.stdout.write(`  ${BOLD}Patched!${RESET}\n\n`);
+          for (const line of cardLines) process.stdout.write(line + '\n');
+          process.stdout.write('\n');
+          process.stdout.write(`  ${ORANGE}${BOLD}\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510${RESET}\n`);
+          process.stdout.write(`  ${ORANGE}${BOLD}\u2502  1. Restart Claude Code               \u2502${RESET}\n`);
+          process.stdout.write(`  ${ORANGE}${BOLD}\u2502  2. Run ${RED}/buddy${ORANGE} to meet your companion  \u2502${RESET}\n`);
+          process.stdout.write(`  ${ORANGE}${BOLD}\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518${RESET}\n`);
+          process.stdout.write('\n');
+          process.stdout.write(`  ${DIM}To undo: npx ccbuddyy restore${RESET}\n\n`);
+        } catch (err) {
+          process.stdout.write(SHOW_CURSOR);
+          process.stdout.write(`\n  Error: ${err.message}\n`);
+        }
+        disableRawMode();
+        resolve();
+      }
+    });
   });
-
-  console.log();
-  console.log(`  ${DIM}avg: ${Math.round(results.reduce((s, r) => s + r.iterations, 0) / results.length).toLocaleString()} iterations/match${RESET}`);
-  console.log(`  ${DIM}expected: ~${expectedIterations.toLocaleString()} iterations/match${RESET}`);
-  console.log(`  ${DIM}speed: ${Math.round(totalIterations / (elapsed / 1000)).toLocaleString()} rolls/sec${RESET}`);
-  console.log();
-
-  const answer = await ask(`  Pick one to apply (1-${results.length}) or 'n' to skip: `);
-  if (answer.toLowerCase() === 'n' || answer === '') return;
-  const idx = parseInt(answer) - 1;
-  if (idx < 0 || idx >= results.length) { console.log('  Invalid.'); return; }
-
-  patch(results[idx].salt);
-  console.log(`\n  ${BOLD}Patched!${RESET} Restart Claude Code and run ${BOLD}/buddy${RESET}`);
 }
 
 // --- Entry point ---
