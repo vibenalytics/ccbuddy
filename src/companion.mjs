@@ -95,7 +95,7 @@ export function matches(roll, terms) {
   });
 }
 
-export function buildSearch(userId, spec, maxResults = 5, maxIterations = 50_000_000) {
+export function buildSearch(userId, spec, maxResults = 3, maxIterations = 50_000_000, onProgress = null) {
   const saltLen = ORIGINAL_SALT.length;
   const chars = '0123456789abcdef';
   const results = [];
@@ -116,8 +116,10 @@ export function buildSearch(userId, spec, maxResults = 5, maxIterations = 50_000
 
     results.push({ ...roll, iterations: i + 1, elapsed: Date.now() - start });
 
-    if (i > 0 && i % 1_000_000 === 0 && results.length < maxResults) {
-      process.stderr.write(`  searched ${(i / 1_000_000).toFixed(0)}M so far (${results.length} found)...\n`);
+    if (onProgress) onProgress(results.length, i + 1, Date.now() - start);
+
+    if (i > 0 && i % 500_000 === 0 && results.length < maxResults) {
+      if (onProgress) onProgress(results.length, i + 1, Date.now() - start);
     }
   }
 

@@ -471,9 +471,22 @@ async function cmdBuild(args) {
   }
 
   const maxIter = Math.max(expectedIterations * 20, 10_000_000);
-  console.log(`  ${DIM}Searching up to ${(maxIter / 1_000_000).toFixed(0)}M iterations...${RESET}\n`);
+  const maxResults = 3;
 
-  const { results, totalIterations, elapsed } = buildSearch(userId, spec, 5, maxIter);
+  // Live progress
+  process.stdout.write(`  ${DIM}Searching...${RESET}  `);
+  let lastProgressLen = 0;
+  function showProgress(found, iters, ms) {
+    const speed = ms > 0 ? Math.round(iters / (ms / 1000)) : 0;
+    const pct = ((iters / maxIter) * 100).toFixed(1);
+    const msg = `${DIM}${found}/${maxResults} found | ${(iters / 1000).toFixed(0)}K searched (${pct}%) | ${speed.toLocaleString()} rolls/sec${RESET}`;
+    process.stdout.write('\r  ' + ' '.repeat(lastProgressLen) + '\r');
+    process.stdout.write(`  ${msg}`);
+    lastProgressLen = msg.replace(/\x1b\[[^m]*m/g, '').length + 2;
+  }
+
+  const { results, totalIterations, elapsed } = buildSearch(userId, spec, maxResults, maxIter, showProgress);
+  process.stdout.write('\r' + ' '.repeat(lastProgressLen + 4) + '\r');
 
   if (results.length === 0) {
     console.log(`  No match found in ${totalIterations.toLocaleString()} iterations (${(elapsed / 1000).toFixed(1)}s)`);
