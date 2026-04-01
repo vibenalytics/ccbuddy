@@ -1,10 +1,10 @@
 {
-  "name": "ccbuddy",
+  "name": "ccbuddyy",
   "version": "1.0.0",
   "description": "Force your Claude Code buddy companion - pick your legendary",
   "type": "module",
   "bin": {
-    "ccbuddy": "./src/cli.mjs"
+    "ccbuddyy": "./src/cli.mjs"
   },
   "files": [
     "src/"

@@ -341,7 +341,7 @@ async function interactiveMenu() {
               `  ${BOLD}Now restart Claude Code${RESET} and run ${BOLD}/buddy${RESET}`,
               `  ${DIM}to meet your new ${chosen.rarity} ${chosen.species}!${RESET}`,
               '',
-              `  ${DIM}To undo later: npx ccbuddy restore${RESET}`,
+              `  ${DIM}To undo later: npx ccbuddyy restore${RESET}`,
               '',
             ];
           } catch (err) {
