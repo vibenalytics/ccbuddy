@@ -71,9 +71,12 @@ export function rollWithSalt(userId, salt) {
   };
 }
 
+const EYE_NAMES = { '·': 'dot', '\u2726': 'star', '\u00d7': 'x', '\u25c9': 'circle', '@': 'at', '\u00b0': 'degree' };
+
 export function matches(roll, terms) {
+  const eyeName = EYE_NAMES[roll.eye] || '';
   const parts = [
-    roll.rarity, roll.species, roll.hat, roll.eye,
+    roll.rarity, roll.species, roll.hat, roll.eye, eyeName,
     roll.shiny ? 'shiny' : '',
     ...STAT_NAMES.map(n => n + ':' + roll.stats[n]),
   ];
@@ -82,6 +85,11 @@ export function matches(roll, terms) {
     if (['duck','goose','blob','cat','dragon','octopus','owl','penguin','turtle',
          'snail','ghost','axolotl','capybara','cactus','robot','rabbit','mushroom','chonk'].includes(t)) {
       return haystack.includes(' ' + t + ' ');
+    }
+    // Match eye by name or character
+    if (t.startsWith('eye:')) {
+      const val = t.slice(4);
+      return roll.eye === val || eyeName === val;
     }
     return haystack.includes(t);
   });
